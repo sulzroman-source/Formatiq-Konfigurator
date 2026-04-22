@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(68, 70, 60, 0.92), rgba(17, 24, 18, 0.98) 38%, #111812 100%),
+    radial-gradient(circle at top left, rgba(247, 147, 0, 0.22), transparent 26%),
+    #111812;
+  color: #f7f3ea;
+  font-feature-settings: "kern";
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button:focus-visible {
+  outline: 2px solid rgba(247, 147, 0, 0.55);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgba(247, 147, 0, 0.3);
+}
