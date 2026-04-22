@@ -26,6 +26,22 @@ type ModelFilterRule = {
   excludeNameHints?: string[];
 };
 
+type ModelFileSlug = "cinema" | "dinner" | "lamps" | "party" | "poles" | "tent-rope";
+
+const MODEL_SIZE_DIRECTORIES: Record<TentSize, TentCategory> = {
+  "7_5x10": "small",
+  "6x9": "small",
+  "8x12": "medium",
+  "10x10": "medium",
+  "10x15": "medium",
+  "20x10": "big",
+  "20x15": "big",
+};
+
+function buildModelPath(size: TentSize, slug: ModelFileSlug) {
+  return `/models/formatiq/${MODEL_SIZE_DIRECTORIES[size]}/${size}/${size}-${slug}.glb`;
+}
+
 /*
 TWEAK VALUES
 - sceneExposure: overall scene brightness after tone mapping
@@ -44,52 +60,52 @@ For those cases we keep the source file but filter the imported scene down to th
 intended meshes only.
 */
 const MODEL_FILTER_RULES: Record<string, ModelFilterRule> = {
-  "/models/formatiq/small/6x9/party.glb": {
+  [buildModelPath("6x9", "party")]: {
     sceneIndex: 0,
     includeNameHints: ["standing", "sofa", "stehpflanze", "cloth"],
   },
-  "/models/formatiq/small/7_5x10/poles.glb": {
+  [buildModelPath("7_5x10", "poles")]: {
     sceneIndex: 1,
     includeNameHints: ["pole", "centerpole", "outside pole"],
     excludeNameHints: ["lampe", "lamp"],
   },
-  "/models/formatiq/medium/8x12/poles.glb": {
+  [buildModelPath("8x12", "poles")]: {
     sceneIndex: 2,
     includeNameHints: ["pole", "centerpole", "outside pole"],
     excludeNameHints: ["lampe", "lamp", "stuhl", "chair", "sofa", "standing table", "podium", "tischpflanze", "stehpflanze"],
   },
-  "/models/formatiq/medium/10x10/poles.glb": {
+  [buildModelPath("10x10", "poles")]: {
     sceneIndex: 0,
     includeNameHints: ["pole", "centerpole", "outside pole"],
     excludeNameHints: ["lampe", "lamp", "stuhl", "chair", "sofa", "standing table", "podium", "tischpflanze", "stehpflanze"],
   },
-  "/models/formatiq/medium/10x15/poles.glb": {
+  [buildModelPath("10x15", "poles")]: {
     sceneIndex: 1,
     includeNameHints: ["pole", "centerpole", "outside pole"],
     excludeNameHints: ["lampe", "lamp", "stuhl", "chair", "sofa", "standing table", "podium", "tischpflanze", "stehpflanze"],
   },
-  "/models/formatiq/medium/8x12/lamps.glb": {
+  [buildModelPath("8x12", "lamps")]: {
     sceneIndex: 2,
     includeNameHints: ["lamp", "lampe"],
   },
-  "/models/formatiq/medium/10x10/lamps.glb": {
+  [buildModelPath("10x10", "lamps")]: {
     sceneIndex: 0,
     includeNameHints: ["lamp", "lampe"],
   },
-  "/models/formatiq/medium/10x15/lamps.glb": {
+  [buildModelPath("10x15", "lamps")]: {
     sceneIndex: 1,
     includeNameHints: ["lamp", "lampe"],
   },
-  "/models/formatiq/medium/10x15/dinner.glb": {
+  [buildModelPath("10x15", "dinner")]: {
     sceneIndex: 1,
     includeNameHints: ["stuhlkreis", "tischpflanze", "stehpflanze"],
     excludeNameHints: ["pole", "centerpole", "outside pole"],
   },
-  "/models/formatiq/big/20x15/lamps.glb": {
+  [buildModelPath("20x15", "lamps")]: {
     sceneIndex: 1,
     includeNameHints: ["lamp", "lampe"],
   },
-  "/models/formatiq/big/20x15/cinema.glb": {
+  [buildModelPath("20x15", "cinema")]: {
     sceneIndex: 1,
     includeNameHints: ["cinema chair", "podium"],
   },
@@ -107,74 +123,74 @@ const MODEL_PARTS: Partial<
   >
 > = {
   "7_5x10": {
-    tentRope: { path: "/models/formatiq/small/7_5x10/tent-rope.glb", sceneIndex: 1 },
-    poles: { path: "/models/formatiq/small/7_5x10/poles.glb", sceneIndex: 1 },
-    lamps: { path: "/models/formatiq/small/7_5x10/lamps.glb", sceneIndex: 1 },
+    tentRope: { path: buildModelPath("7_5x10", "tent-rope"), sceneIndex: 1 },
+    poles: { path: buildModelPath("7_5x10", "poles"), sceneIndex: 1 },
+    lamps: { path: buildModelPath("7_5x10", "lamps"), sceneIndex: 1 },
     seating: {
-      party: "/models/formatiq/small/7_5x10/party.glb",
-      dinner: "/models/formatiq/small/7_5x10/dinner.glb",
-      kino: "/models/formatiq/small/7_5x10/cinema.glb",
+      party: buildModelPath("7_5x10", "party"),
+      dinner: buildModelPath("7_5x10", "dinner"),
+      kino: buildModelPath("7_5x10", "cinema"),
     },
   },
   "6x9": {
-    tentRope: "/models/formatiq/small/6x9/tent-rope.glb",
-    poles: "/models/formatiq/small/6x9/poles.glb",
-    lamps: "/models/formatiq/small/6x9/lamps.glb",
+    tentRope: buildModelPath("6x9", "tent-rope"),
+    poles: buildModelPath("6x9", "poles"),
+    lamps: buildModelPath("6x9", "lamps"),
     seating: {
-      party: "/models/formatiq/small/6x9/party.glb",
-      dinner: "/models/formatiq/small/6x9/dinner.glb",
-      kino: "/models/formatiq/small/6x9/cinema.glb",
+      party: buildModelPath("6x9", "party"),
+      dinner: buildModelPath("6x9", "dinner"),
+      kino: buildModelPath("6x9", "cinema"),
     },
   },
   "8x12": {
-    tentRope: "/models/formatiq/medium/8x12/tent-rope.glb",
-    poles: "/models/formatiq/medium/8x12/poles.glb",
-    lamps: "/models/formatiq/medium/8x12/lamps.glb",
+    tentRope: buildModelPath("8x12", "tent-rope"),
+    poles: buildModelPath("8x12", "poles"),
+    lamps: buildModelPath("8x12", "lamps"),
     seating: {
-      party: { path: "/models/formatiq/medium/8x12/party.glb", sceneIndex: 2 },
-      dinner: "/models/formatiq/medium/8x12/dinner.glb",
-      kino: { path: "/models/formatiq/medium/8x12/cinema.glb", sceneIndex: 2 },
+      party: { path: buildModelPath("8x12", "party"), sceneIndex: 2 },
+      dinner: buildModelPath("8x12", "dinner"),
+      kino: { path: buildModelPath("8x12", "cinema"), sceneIndex: 2 },
     },
   },
   "10x10": {
-    tentRope: "/models/formatiq/medium/10x10/tent-rope.glb",
-    poles: "/models/formatiq/medium/10x10/poles.glb",
-    lamps: "/models/formatiq/medium/10x10/lamps.glb",
+    tentRope: buildModelPath("10x10", "tent-rope"),
+    poles: buildModelPath("10x10", "poles"),
+    lamps: buildModelPath("10x10", "lamps"),
     seating: {
-      party: { path: "/models/formatiq/medium/10x10/party.glb", sceneIndex: 0 },
-      dinner: { path: "/models/formatiq/medium/10x10/dinner.glb", sceneIndex: 0 },
-      kino: { path: "/models/formatiq/medium/10x10/cinema.glb", sceneIndex: 0 },
+      party: { path: buildModelPath("10x10", "party"), sceneIndex: 0 },
+      dinner: { path: buildModelPath("10x10", "dinner"), sceneIndex: 0 },
+      kino: { path: buildModelPath("10x10", "cinema"), sceneIndex: 0 },
     },
   },
   "10x15": {
-    tentRope: "/models/formatiq/medium/10x15/tent-rope.glb",
-    poles: "/models/formatiq/medium/10x15/poles.glb",
-    lamps: "/models/formatiq/medium/10x15/lamps.glb",
+    tentRope: buildModelPath("10x15", "tent-rope"),
+    poles: buildModelPath("10x15", "poles"),
+    lamps: buildModelPath("10x15", "lamps"),
     seating: {
       // "party" is the legacy internal key; in the UI this option is Standing Cocktail+.
-      party: { path: "/models/formatiq/medium/10x15/party.glb", sceneIndex: 1 },
-      dinner: { path: "/models/formatiq/medium/10x15/dinner.glb", sceneIndex: 1 },
-      kino: { path: "/models/formatiq/medium/10x15/cinema.glb", sceneIndex: 0 },
+      party: { path: buildModelPath("10x15", "party"), sceneIndex: 1 },
+      dinner: { path: buildModelPath("10x15", "dinner"), sceneIndex: 1 },
+      kino: { path: buildModelPath("10x15", "cinema"), sceneIndex: 0 },
     },
   },
   "20x10": {
-    tentRope: "/models/formatiq/big/20x10/tent-rope.glb",
-    poles: "/models/formatiq/big/20x10/poles.glb",
-    lamps: "/models/formatiq/big/20x10/lamps.glb",
+    tentRope: buildModelPath("20x10", "tent-rope"),
+    poles: buildModelPath("20x10", "poles"),
+    lamps: buildModelPath("20x10", "lamps"),
     seating: {
-      party: "/models/formatiq/big/20x10/party.glb",
-      dinner: "/models/formatiq/big/20x10/dinner.glb",
-      kino: "/models/formatiq/big/20x10/cinema.glb",
+      party: buildModelPath("20x10", "party"),
+      dinner: buildModelPath("20x10", "dinner"),
+      kino: buildModelPath("20x10", "cinema"),
     },
   },
   "20x15": {
-    tentRope: { path: "/models/formatiq/big/20x15/tent-rope.glb", sceneIndex: 1 },
-    poles: { path: "/models/formatiq/big/20x15/poles.glb", sceneIndex: 1 },
-    lamps: { path: "/models/formatiq/big/20x15/lamps.glb", sceneIndex: 1 },
+    tentRope: { path: buildModelPath("20x15", "tent-rope"), sceneIndex: 1 },
+    poles: { path: buildModelPath("20x15", "poles"), sceneIndex: 1 },
+    lamps: { path: buildModelPath("20x15", "lamps"), sceneIndex: 1 },
     seating: {
-      party: { path: "/models/formatiq/big/20x15/party.glb", sceneIndex: 1 },
-      dinner: { path: "/models/formatiq/big/20x15/dinner.glb", sceneIndex: 1 },
-      kino: { path: "/models/formatiq/big/20x15/cinema.glb", sceneIndex: 1 },
+      party: { path: buildModelPath("20x15", "party"), sceneIndex: 1 },
+      dinner: { path: buildModelPath("20x15", "dinner"), sceneIndex: 1 },
+      kino: { path: buildModelPath("20x15", "cinema"), sceneIndex: 1 },
     },
   },
 };
@@ -510,7 +526,7 @@ function applyModelCorrections(object: THREE.Object3D, asset: ModelAssetRef | un
     return;
   }
 
-  if (path === "/models/formatiq/small/6x9/party.glb") {
+  if (path === buildModelPath("6x9", "party")) {
     object.traverse((node) => {
       if (!/standing table/i.test(node.name)) {
         return;
