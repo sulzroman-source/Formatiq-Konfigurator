@@ -24,6 +24,7 @@ type ModelFilterRule = {
   sceneIndex?: number;
   includeNameHints: string[];
   excludeNameHints?: string[];
+  preserveMaterialHints?: readonly string[];
 };
 
 type ModelFileSlug = "cinema" | "dinner" | "lamps" | "party" | "poles" | "tent-rope";
@@ -54,35 +55,112 @@ const TWEAK_VALUES = {
   hdriRotationX: Math.PI / 4,
 } as const;
 
+const UNNAMED_POLE_MATERIAL_HINTS = [
+  "aluminium",
+  "aluminum",
+  "metal",
+  "seil",
+  "rope",
+  "mat_0",
+  "rubber",
+] as const;
+
+const UNNAMED_STANDING_TABLE_MATERIAL_HINTS = ["woven cloth", "cloth"] as const;
+const UNNAMED_SOFA_MATERIAL_HINTS = ["old wood", "beige linen fabric"] as const;
+
+const UNNAMED_CHAIR_MATERIAL_HINTS = [
+  "gray white plastic",
+  "fabric",
+  "gold",
+  "black matt",
+] as const;
+
+const PARTY_SEATING_INCLUDE_HINTS = ["standing table", "sofa", "stehpflanze"] as const;
+const PARTY_SEATING_EXCLUDE_HINTS = ["stuhlkreis", "cinema chair", "podium", "tischpflanze"] as const;
+const PARTY_SEATING_MATERIAL_HINTS = [
+  ...UNNAMED_STANDING_TABLE_MATERIAL_HINTS,
+  ...UNNAMED_SOFA_MATERIAL_HINTS,
+] as const;
+
+const DINNER_SEATING_INCLUDE_HINTS = ["stuhlkreis", "tischpflanze", "stehpflanze"] as const;
+const DINNER_SEATING_EXCLUDE_HINTS = ["standing table", "sofa", "cinema chair", "podium"] as const;
+
+const CINEMA_SEATING_INCLUDE_HINTS = ["cinema chair", "podium"] as const;
+const CINEMA_SEATING_EXCLUDE_HINTS = [
+  "standing table",
+  "sofa",
+  "tischpflanze",
+  "stehpflanze",
+  "stuhlkreis",
+] as const;
+
+const FILTERED_SEATING_SIZES = [
+  "6x9",
+  "7_5x10",
+  "8x12",
+  "10x10",
+  "10x15",
+  "20x10",
+  "20x15",
+] as const satisfies readonly TentSize[];
+
+const SEATING_FILTER_RULES = Object.fromEntries(
+  FILTERED_SEATING_SIZES.flatMap((size) => [
+    [
+      buildModelPath(size, "party"),
+      {
+        includeNameHints: [...PARTY_SEATING_INCLUDE_HINTS],
+        excludeNameHints: [...PARTY_SEATING_EXCLUDE_HINTS],
+        preserveMaterialHints: PARTY_SEATING_MATERIAL_HINTS,
+      } satisfies ModelFilterRule,
+    ],
+    [
+      buildModelPath(size, "dinner"),
+      {
+        includeNameHints: [...DINNER_SEATING_INCLUDE_HINTS],
+        excludeNameHints: [...DINNER_SEATING_EXCLUDE_HINTS],
+        preserveMaterialHints: UNNAMED_CHAIR_MATERIAL_HINTS,
+      } satisfies ModelFilterRule,
+    ],
+    [
+      buildModelPath(size, "cinema"),
+      {
+        includeNameHints: [...CINEMA_SEATING_INCLUDE_HINTS],
+        excludeNameHints: [...CINEMA_SEATING_EXCLUDE_HINTS],
+      } satisfies ModelFilterRule,
+    ],
+  ]),
+) as Record<string, ModelFilterRule>;
+
 /*
-Some seating GLBs currently contain multiple embedded setups from Blender exports.
-For those cases we keep the source file but filter the imported scene down to the
-intended meshes only.
+Some GLBs currently contain multiple embedded setups from Blender exports.
+Each selected asset is filtered so only the intended configuration remains visible.
 */
 const MODEL_FILTER_RULES: Record<string, ModelFilterRule> = {
-  [buildModelPath("6x9", "party")]: {
-    sceneIndex: 0,
-    includeNameHints: ["standing", "sofa", "stehpflanze", "cloth"],
-  },
+  ...SEATING_FILTER_RULES,
   [buildModelPath("7_5x10", "poles")]: {
     sceneIndex: 1,
     includeNameHints: ["pole", "centerpole", "outside pole"],
     excludeNameHints: ["lampe", "lamp"],
+    preserveMaterialHints: UNNAMED_POLE_MATERIAL_HINTS,
   },
   [buildModelPath("8x12", "poles")]: {
     sceneIndex: 2,
     includeNameHints: ["pole", "centerpole", "outside pole"],
     excludeNameHints: ["lampe", "lamp", "stuhl", "chair", "sofa", "standing table", "podium", "tischpflanze", "stehpflanze"],
+    preserveMaterialHints: UNNAMED_POLE_MATERIAL_HINTS,
   },
   [buildModelPath("10x10", "poles")]: {
     sceneIndex: 0,
     includeNameHints: ["pole", "centerpole", "outside pole"],
     excludeNameHints: ["lampe", "lamp", "stuhl", "chair", "sofa", "standing table", "podium", "tischpflanze", "stehpflanze"],
+    preserveMaterialHints: UNNAMED_POLE_MATERIAL_HINTS,
   },
   [buildModelPath("10x15", "poles")]: {
     sceneIndex: 1,
     includeNameHints: ["pole", "centerpole", "outside pole"],
     excludeNameHints: ["lampe", "lamp", "stuhl", "chair", "sofa", "standing table", "podium", "tischpflanze", "stehpflanze"],
+    preserveMaterialHints: UNNAMED_POLE_MATERIAL_HINTS,
   },
   [buildModelPath("8x12", "lamps")]: {
     sceneIndex: 2,
@@ -96,18 +174,9 @@ const MODEL_FILTER_RULES: Record<string, ModelFilterRule> = {
     sceneIndex: 1,
     includeNameHints: ["lamp", "lampe"],
   },
-  [buildModelPath("10x15", "dinner")]: {
-    sceneIndex: 1,
-    includeNameHints: ["stuhlkreis", "tischpflanze", "stehpflanze"],
-    excludeNameHints: ["pole", "centerpole", "outside pole"],
-  },
   [buildModelPath("20x15", "lamps")]: {
     sceneIndex: 1,
     includeNameHints: ["lamp", "lampe"],
-  },
-  [buildModelPath("20x15", "cinema")]: {
-    sceneIndex: 1,
-    includeNameHints: ["cinema chair", "podium"],
   },
 };
 
@@ -296,34 +365,72 @@ function getResolvedAsset(asset: ModelAssetRef | undefined) {
   return { path, sceneIndex: rule.sceneIndex };
 }
 
-function filterSceneByNameHints(object: THREE.Object3D, nameHints: string[]) {
-  const normalizedHints = nameHints.map((hint) => hint.toLowerCase());
+function hasMaterialNameHint(object: THREE.Object3D, hints: readonly string[]) {
+  let matched = false;
+
+  object.traverse((node) => {
+    if (matched || !(node instanceof THREE.Mesh)) {
+      return;
+    }
+
+    const materials = Array.isArray(node.material) ? node.material : [node.material];
+    matched = materials.some((material) => {
+      const materialName = material?.name?.toLowerCase() ?? "";
+      return hints.some((hint) => materialName.includes(hint));
+    });
+  });
+
+  return matched;
+}
+
+function normalizeNodeName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[_./-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function filterSceneByNameHints(
+  object: THREE.Object3D,
+  nameHints: string[],
+  options?: { preserveMaterialHints?: readonly string[] },
+) {
+  const normalizedHints = nameHints.map((hint) => normalizeNodeName(hint));
 
   const shouldKeep = (node: THREE.Object3D): boolean => {
-    const nodeName = node.name.toLowerCase();
+    const nodeName = normalizeNodeName(node.name);
     const nameMatch = normalizedHints.some((hint) => nodeName.includes(hint));
+    const materialMatch =
+      options?.preserveMaterialHints?.length &&
+      hasMaterialNameHint(node, options.preserveMaterialHints);
     const childMatch = node.children.some((child) => shouldKeep(child));
 
-    return nameMatch || childMatch;
+    return nameMatch || materialMatch || childMatch;
   };
 
   object.children = object.children.filter((child) => shouldKeep(child));
 }
 
 function removeSceneByNameHints(object: THREE.Object3D, nameHints: string[]) {
-  const normalizedHints = nameHints.map((hint) => hint.toLowerCase());
+  const normalizedHints = nameHints.map((hint) => normalizeNodeName(hint));
+  const nodesToRemove: THREE.Object3D[] = [];
 
   object.traverse((node) => {
     if (!node.parent) {
       return;
     }
 
-    const nodeName = node.name.toLowerCase();
+    const nodeName = normalizeNodeName(node.name);
     const shouldRemove = normalizedHints.some((hint) => nodeName.includes(hint));
 
     if (shouldRemove) {
-      node.removeFromParent();
+      nodesToRemove.push(node);
     }
+  });
+
+  nodesToRemove.forEach((node) => {
+    node.removeFromParent();
   });
 }
 
@@ -514,7 +621,9 @@ function applyModelFilter(object: THREE.Object3D, asset: ModelAssetRef | undefin
     return;
   }
 
-  filterSceneByNameHints(object, rule.includeNameHints);
+  filterSceneByNameHints(object, rule.includeNameHints, {
+    preserveMaterialHints: rule.preserveMaterialHints,
+  });
   if (rule.excludeNameHints?.length) {
     removeSceneByNameHints(object, rule.excludeNameHints);
   }
@@ -527,12 +636,26 @@ function applyModelCorrections(object: THREE.Object3D, asset: ModelAssetRef | un
   }
 
   if (path === buildModelPath("6x9", "party")) {
-    object.traverse((node) => {
-      if (!/standing table/i.test(node.name)) {
+    object.children.forEach((node) => {
+      const isStandingTableNode =
+        normalizeNodeName(node.name).includes("standing table") ||
+        hasMaterialNameHint(node, UNNAMED_STANDING_TABLE_MATERIAL_HINTS);
+
+      if (!isStandingTableNode) {
         return;
       }
 
       node.position.y -= 1.12;
+    });
+  }
+
+  if (path === buildModelPath("20x15", "party")) {
+    object.traverse((node) => {
+      if (!/stehpflanze/i.test(node.name)) {
+        return;
+      }
+
+      node.scale.multiplyScalar(0.6);
     });
   }
 }
@@ -613,9 +736,10 @@ function PerspectiveScene({
     }
     group.updateMatrixWorld(true);
 
-    const bounds = new THREE.Box3().setFromObject(group);
-    const center = bounds.getCenter(new THREE.Vector3());
-    const minY = bounds.min.y;
+    const centerBounds = new THREE.Box3().setFromObject(tentRopeClone);
+    const groundBounds = new THREE.Box3().setFromObject(polesClone ?? tentRopeClone);
+    const center = centerBounds.getCenter(new THREE.Vector3());
+    const minY = groundBounds.min.y;
     const offset = new THREE.Vector3(-center.x, -minY - 0.04, -center.z);
 
     group.position.copy(offset);
@@ -704,9 +828,10 @@ function TopScene({
     group.add(seatingClone);
     group.updateMatrixWorld(true);
 
-    const bounds = new THREE.Box3().setFromObject(group);
-    const center = bounds.getCenter(new THREE.Vector3());
-    const minY = bounds.min.y;
+    const centerBounds = new THREE.Box3().setFromObject(polesClone ?? seatingClone);
+    const groundBounds = new THREE.Box3().setFromObject(polesClone ?? group);
+    const center = centerBounds.getCenter(new THREE.Vector3());
+    const minY = groundBounds.min.y;
 
     group.position.set(-center.x, -minY - 0.04, -center.z);
 
