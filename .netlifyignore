@@ -1,0 +1,14 @@
+.git
+.next
+node_modules
+.npm-cache
+backups
+dist
+out
+next-dev-*.log
+*.out.log
+*.err.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

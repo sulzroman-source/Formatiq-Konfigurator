@@ -1009,49 +1009,23 @@ export function ModelStage({
         .filter((path): path is string => Boolean(path)),
     );
   }, [viewerMode, tentRopeAsset, polesAsset, seatingAsset, lampsAsset]);
-  const categoryModelPaths = useMemo(() => {
-    const categoryPaths = Object.entries(MODEL_PARTS).flatMap(([size, parts]) => {
-      if (!parts || TENT_VARIANTS[size as TentSize].category !== variant.category) {
-        return [];
-      }
-
-      return [
-        getAssetPath(parts.tentRope),
-        getAssetPath(parts.poles),
-        getAssetPath(parts.lamps),
-        ...Object.values(parts.seating ?? {}).map((asset) => getAssetPath(asset)),
-      ];
-    });
-
-    return new Set(categoryPaths.filter((path): path is string => Boolean(path)));
-  }, [variant.category]);
-
   useEffect(() => {
     activeModelPaths.forEach((path) => {
       useGLTF.preload(path);
     });
 
-    const preloadCategoryTimer = window.setTimeout(() => {
-      categoryModelPaths.forEach((path) => {
-        if (!activeModelPaths.has(path)) {
-          useGLTF.preload(path);
-        }
-      });
-    }, 350);
-
     const cleanupTimer = window.setTimeout(() => {
       KNOWN_MODEL_PATHS.forEach((path) => {
-        if (!categoryModelPaths.has(path) && !activeModelPaths.has(path)) {
+        if (!activeModelPaths.has(path)) {
           useGLTF.clear(path);
         }
       });
     }, MODEL_CACHE_CLEANUP_DELAY_MS);
 
     return () => {
-      window.clearTimeout(preloadCategoryTimer);
       window.clearTimeout(cleanupTimer);
     };
-  }, [activeModelPaths, categoryModelPaths]);
+  }, [activeModelPaths]);
 
   return (
     <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-moss shadow-soft">

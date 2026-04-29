@@ -4,6 +4,7 @@ import nextTypescript from "eslint-config-next/typescript";
 const config = [
   {
     ignores: [
+      ".netlify/**",
       "backups/**",
       "viewer-neu/**",
       "neues-projekt/**",
