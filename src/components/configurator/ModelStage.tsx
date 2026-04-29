@@ -1,14 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import {
-  AccumulativeShadows,
   Environment,
+  Lightformer,
   OrthographicCamera,
   OrbitControls,
   PerspectiveCamera,
-  RandomizedLight,
   useGLTF,
 } from "@react-three/drei";
 import * as THREE from "three";
@@ -52,7 +51,6 @@ const TWEAK_VALUES = {
   sceneExposure: 0.92,
   environmentIntensity: 1.08,
   shadowCatcherY: -0.01,
-  hdriRotationX: Math.PI / 4,
 } as const;
 
 const UNNAMED_POLE_MATERIAL_HINTS = [
@@ -277,7 +275,7 @@ const KNOWN_MODEL_PATHS = Array.from(
   ),
 );
 
-const MODEL_CACHE_CLEANUP_DELAY_MS = 120_000;
+const MODEL_CACHE_CLEANUP_DELAY_MS = 5_000;
 
 interface ModelStageProps {
   lightsEnabled: boolean;
@@ -569,6 +567,8 @@ function tuneStandardLikeMaterial(
 }
 
 function tuneObjectMaterials(object: THREE.Object3D, profile: MaterialProfile) {
+  const clonedMaterialMap = new Map<THREE.Material, THREE.Material>();
+
   object.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) {
       return;
@@ -579,6 +579,11 @@ function tuneObjectMaterials(object: THREE.Object3D, profile: MaterialProfile) {
         return material;
       }
 
+      const existingClone = clonedMaterialMap.get(material);
+      if (existingClone) {
+        return existingClone;
+      }
+
       const cloned = material.clone();
       cloned.userData = {
         ...cloned.userData,
@@ -586,6 +591,7 @@ function tuneObjectMaterials(object: THREE.Object3D, profile: MaterialProfile) {
       };
       tuneMaterialTextures(cloned);
       tuneStandardLikeMaterial(cloned, profile);
+      clonedMaterialMap.set(material, cloned);
       return cloned;
     };
 
@@ -598,6 +604,8 @@ function tuneObjectMaterials(object: THREE.Object3D, profile: MaterialProfile) {
 }
 
 function disposeConfiguratorClonedMaterials(object: THREE.Object3D) {
+  const disposedMaterials = new Set<THREE.Material>();
+
   object.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) {
       return;
@@ -608,7 +616,11 @@ function disposeConfiguratorClonedMaterials(object: THREE.Object3D) {
       : [child.material];
 
     materials.forEach((material) => {
-      if (material?.userData.configuratorClonedMaterial) {
+      if (
+        material?.userData.configuratorClonedMaterial &&
+        !disposedMaterials.has(material)
+      ) {
+        disposedMaterials.add(material);
         material.dispose();
       }
     });
@@ -857,30 +869,6 @@ function TopScene({
   return <primitive object={normalizedGroup} />;
 }
 
-function PerspectiveShadowCatcher({ size }: { size: number }) {
-  return (
-    <AccumulativeShadows
-      frames={64}
-      alphaTest={0.84}
-      opacity={0.72}
-      color="#cdbca7"
-      colorBlend={0.82}
-      scale={size * 0.72}
-      position={[0, TWEAK_VALUES.shadowCatcherY, 0]}
-    >
-      <RandomizedLight
-        amount={14}
-        radius={5.8}
-        ambient={0.28}
-        intensity={1.55}
-        position={[-8, 6.2, 7]}
-        bias={0.00055}
-        size={22}
-      />
-    </AccumulativeShadows>
-  );
-}
-
 function ShowroomBackdrop({ size }: { size: number }) {
   const shadowSize = size * 0.72;
   const roomWidth = shadowSize;
@@ -934,20 +922,34 @@ function ShowroomBackdrop({ size }: { size: number }) {
   );
 }
 
-function EnvironmentRotation() {
-  const scene = useThree((state) => state.scene);
-
-  useEffect(() => {
-    scene.environmentRotation.set(TWEAK_VALUES.hdriRotationX, 0, 0);
-    scene.backgroundRotation.set(TWEAK_VALUES.hdriRotationX, 0, 0);
-
-    return () => {
-      scene.environmentRotation.set(0, 0, 0);
-      scene.backgroundRotation.set(0, 0, 0);
-    };
-  }, [scene]);
-
-  return null;
+function StudioEnvironment() {
+  return (
+    <Environment resolution={32}>
+      <group rotation={[Math.PI / 4, 0, 0]}>
+        <Lightformer
+          form="rect"
+          intensity={1.6 * TWEAK_VALUES.environmentIntensity}
+          color="#fff3e0"
+          position={[0, 7, -10]}
+          scale={[18, 18, 1]}
+        />
+        <Lightformer
+          form="rect"
+          intensity={0.95 * TWEAK_VALUES.environmentIntensity}
+          color="#ffd7a8"
+          position={[-8, 4, 6]}
+          scale={[10, 10, 1]}
+        />
+        <Lightformer
+          form="rect"
+          intensity={0.55 * TWEAK_VALUES.environmentIntensity}
+          color="#dbe7ff"
+          position={[9, 3, -2]}
+          scale={[9, 9, 1]}
+        />
+      </group>
+    </Environment>
+  );
 }
 
 function MissingModelStage({
@@ -1010,10 +1012,6 @@ export function ModelStage({
     );
   }, [viewerMode, tentRopeAsset, polesAsset, seatingAsset, lampsAsset]);
   useEffect(() => {
-    activeModelPaths.forEach((path) => {
-      useGLTF.preload(path);
-    });
-
     const cleanupTimer = window.setTimeout(() => {
       KNOWN_MODEL_PATHS.forEach((path) => {
         if (!activeModelPaths.has(path)) {
@@ -1085,12 +1083,14 @@ export function ModelStage({
         seatingModelPath &&
         (viewerMode === "top" || tentRopeModelPath) ? (
           <Canvas
-            dpr={[1, 1.5]}
-            shadows
+            dpr={1}
+            frameloop="demand"
+            shadows={viewerMode === "perspective"}
             gl={{
-              antialias: true,
+              antialias: false,
               alpha: false,
-              powerPreference: "high-performance",
+              powerPreference: "default",
+              stencil: false,
             }}
             onCreated={({ gl }) => {
               gl.outputColorSpace = THREE.SRGBColorSpace;
@@ -1115,11 +1115,7 @@ export function ModelStage({
                   fov={28}
                 />
                 <ambientLight intensity={0.22} color="#fff1df" />
-                <Environment
-                  files="/hdri/plains_sunset_2k.exr"
-                  environmentIntensity={TWEAK_VALUES.environmentIntensity}
-                />
-                <EnvironmentRotation />
+                <StudioEnvironment />
                 <directionalLight
                   position={[-11, 7.5, 7]}
                   intensity={3.15}
@@ -1127,8 +1123,8 @@ export function ModelStage({
                   shadow-bias={-0.00006}
                   shadow-normalBias={0.01}
                   shadow-radius={8}
-                  shadow-mapSize-width={4096}
-                  shadow-mapSize-height={4096}
+                  shadow-mapSize-width={1024}
+                  shadow-mapSize-height={1024}
                   shadow-camera-left={-42}
                   shadow-camera-right={42}
                   shadow-camera-top={42}
@@ -1167,7 +1163,6 @@ export function ModelStage({
                 {viewerMode === "perspective" && tentRopeModelPath ? (
                   <>
                     <ShowroomBackdrop size={shadowCatcherSize} />
-                    <PerspectiveShadowCatcher size={shadowCatcherSize} />
                     <PerspectiveScene
                       tentRopeAsset={tentRopeAsset!}
                       polesAsset={polesAsset}
